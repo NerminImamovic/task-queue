@@ -1,0 +1,57 @@
+version: "3.4"
+services:
+
+  task-consumer:
+    build:
+      context: ./task-consumer
+    container_name: task-consumer
+    restart: on-failure
+    networks:
+      - app-network
+    depends_on:
+      - rabbitmq
+    command: sh -c '/bin/wait-for-it.sh rabbitmq:5672 --timeout=30 -- npm run start'
+    environment:
+      - MONGO_URL=mongodb://mongo/tasks
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - QUEUE_NAME=queue
+
+  task-producer:
+    build:
+      context: ./task-producer
+    ports:
+      - 3000:3000
+    container_name: task-producer
+    networks:
+      - app-network
+    environment:
+      - PORT=3000
+      - MONGO_URL=mongodb://mongo/tasks
+      - RABBITMQ_URL=amqp://guest:guest@rabbitmq:5672
+      - QUEUE_NAME=queue
+
+  rabbitmq:
+    image: rabbitmq:3.8-management-alpine
+    container_name: rabbitmq
+    networks:
+      - app-network
+    ports:
+        - 5672:5672
+        - 15672:15672
+    volumes:
+        - ~/.docker-conf/rabbitmq/data/:/var/lib/rabbitmq/
+        - ~/.docker-conf/rabbitmq/log/:/var/log/rabbitmq
+
+  mongo:
+    image: mongo:5.0
+    container_name: mongo
+    networks:
+      - app-network
+    volumes:
+      - ./data/prod/mongo:/data/db
+    ports:
+      - 27017:27017
+
+networks:
+  app-network:
+    driver: bridge
